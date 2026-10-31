@@ -1,0 +1,10 @@
+{
+  "name": "undercover",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Jeu Undercover en local (PWA), 3 à 10 joueurs sur un seul téléphone.",
+  "scripts": {
+    "test": "node test/game.test.js",
+    "start": "python3 -m http.server 8080"
+  }
+}
