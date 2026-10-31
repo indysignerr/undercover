@@ -4,7 +4,6 @@
 
   const STORAGE_KEY = "undercover.v1";
   const COLORS = ["#6fdc8c", "#5ee0e0", "#f7b84b", "#f26d85", "#8f7bff", "#ff8a5c", "#4dc3ff", "#d7ff5c", "#ff5ca8", "#c9a7ff"];
-  const TIMER_PRESETS = [30, 60, 90, 120, 180];
   const RECENT_PAIRS_MAX = 100;
 
   const app = document.getElementById("app");
@@ -30,7 +29,7 @@
         { id: uid(), name: "Joueur 3", color: 2 },
       ],
       roles: Object.assign({}, Game.defaultRoles(3)),
-      settings: { timerSeconds: 60, mrWhiteGuess: true, vibrate: true },
+      settings: { mrWhiteGuess: true, vibrate: true },
       game: null,
       scores: {},
       recentPairs: [],
@@ -63,15 +62,11 @@
 
   let state = load() || defaultState();
 
-  // Timer (non persisté)
-  const timer = { duration: state.settings.timerSeconds, remaining: state.settings.timerSeconds, running: false, handle: null, endedAt: 0 };
-
   // ------------------------------------------------------------------ rendu
   function render() {
     const screens = { home, setup, reveal, describe, vote, eliminated, end, scores };
     const fn = screens[state.screen] || home;
     app.innerHTML = fn();
-    renderTimerChip();
     window.scrollTo(0, 0);
     save();
   }
@@ -410,7 +405,6 @@
     openModal(
       `
       <div class="menu">
-        <button class="menu-item" data-action="openTimer"><span class="menu-icon g">${icon("timer")}</span>Timer</button>
         <button class="menu-item" data-action="openAmnesic"><span class="menu-icon b">${icon("eye")}</span>Mode amnésique</button>
         <button class="menu-item" data-action="openEditPlayers"><span class="menu-icon y">${icon("user")}</span>Modifier les joueurs</button>
         <button class="menu-item" data-action="openSettings"><span class="menu-icon p">${icon("gear")}</span>Réglages</button>
@@ -446,22 +440,6 @@
         <p>Civils : <b>+2</b> · Undercover : <b>+10</b> · Mr White : <b>+6</b>, attribués aux gagnants.</p>
       </div>
       <div class="actions"><button class="btn block" data-action="closeModal">Compris</button></div>`);
-  }
-
-  function timerModal() {
-    const low = timer.remaining <= 10;
-    openModal(`
-      <h2>Timer</h2>
-      <p>Temps de parole ou de débat. Un signal sonore retentit à la fin.</p>
-      <div class="chips">
-        ${TIMER_PRESETS.map((s) => `<button class="chip-btn ${timer.duration === s ? "on" : ""}" data-action="timerPreset" data-s="${s}">${fmtTime(s)}</button>`).join("")}
-      </div>
-      <div class="timer-display ${low && timer.running ? "low" : ""}" id="timer-display">${fmtTime(timer.remaining)}</div>
-      <div class="actions">
-        <button class="btn secondary" data-action="timerReset">Réinitialiser</button>
-        <button class="btn ${timer.running ? "danger" : "green"}" data-action="timerToggle">${timer.running ? "Pause" : "Démarrer"}</button>
-      </div>
-      <div class="actions"><button class="btn ghost block" data-action="closeModal">Fermer</button></div>`);
   }
 
   function amnesicModal(playerId) {
@@ -521,12 +499,6 @@
         <div class="tl">Vibrations<small>Petit retour haptique lors des révélations.</small></div>
         <button class="switch ${s.vibrate ? "on" : ""}" data-action="toggleSetting" data-key="vibrate" aria-label="Vibrations"></button>
       </div>
-      <div class="toggle-row">
-        <div class="tl">Durée du timer par défaut</div>
-        <select data-action-change="timerDefault">
-          ${TIMER_PRESETS.map((v) => `<option value="${v}" ${s.timerSeconds === v ? "selected" : ""}>${fmtTime(v)}</option>`).join("")}
-        </select>
-      </div>
       <div class="actions" style="flex-direction:column">
         <button class="btn secondary block" data-action="rules">Voir les règles</button>
         <button class="btn ghost block" data-action="confirmResetScores">Réinitialiser le classement</button>
@@ -534,85 +506,8 @@
       </div>`);
   }
 
-  // ------------------------------------------------------------------ timer
-  function fmtTime(s) {
-    s = Math.max(0, Math.round(s));
-    const m = Math.floor(s / 60);
-    const r = s % 60;
-    return m > 0 ? `${m}:${String(r).padStart(2, "0")}` : `${r}s`;
-  }
-  function timerTick() {
-    timer.remaining = Math.max(0, Math.round((timer.endedAt - Date.now()) / 1000));
-    const d = document.getElementById("timer-display");
-    if (d) {
-      d.textContent = fmtTime(timer.remaining);
-      d.classList.toggle("low", timer.remaining <= 10);
-    }
-    renderTimerChip();
-    if (timer.remaining <= 0) {
-      timerStop();
-      beep();
-      vibrate([200, 100, 200, 100, 400]);
-      if (d) d.classList.add("low");
-    }
-  }
-  function timerStart() {
-    if (timer.remaining <= 0) timer.remaining = timer.duration;
-    timer.endedAt = Date.now() + timer.remaining * 1000;
-    timer.running = true;
-    timer.handle = setInterval(timerTick, 250);
-  }
-  function timerStop() {
-    timer.running = false;
-    if (timer.handle) clearInterval(timer.handle);
-    timer.handle = null;
-  }
-  function renderTimerChip() {
-    let chip = document.getElementById("timer-chip");
-    const show = state.game && (timer.running || timer.remaining < timer.duration) && !modalRoot.querySelector("#timer-display");
-    if (!show) {
-      if (chip) chip.remove();
-      return;
-    }
-    if (!chip) {
-      chip = document.createElement("button");
-      chip.id = "timer-chip";
-      chip.className = "timer-chip";
-      chip.dataset.action = "openTimer";
-      document.body.appendChild(chip);
-    }
-    chip.textContent = (timer.running ? "⏱ " : "⏸ ") + fmtTime(timer.remaining);
-    chip.classList.toggle("low", timer.remaining <= 10);
-  }
-  let audioCtx = null;
-  function beep() {
-    try {
-      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-      const now = audioCtx.currentTime;
-      [0, 0.25, 0.5].forEach((t) => {
-        const o = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        o.frequency.value = 880;
-        o.connect(g);
-        g.connect(audioCtx.destination);
-        g.gain.setValueAtTime(0.0001, now + t);
-        g.gain.exponentialRampToValueAtTime(0.4, now + t + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, now + t + 0.2);
-        o.start(now + t);
-        o.stop(now + t + 0.22);
-      });
-    } catch (e) { /* audio indisponible */ }
-  }
-
   // ------------------------------------------------------------------ logique de partie
-  function resetTimer() {
-    timerStop();
-    timer.duration = state.settings.timerSeconds;
-    timer.remaining = timer.duration;
-  }
-
   function newDeal() {
-    resetTimer();
     const pair = Game.pickPair(WORD_PAIRS, state.recentPairs);
     state.recentPairs.push(pair.id);
     if (state.recentPairs.length > RECENT_PAIRS_MAX) state.recentPairs.shift();
@@ -647,7 +542,6 @@
 
   function finish(winner, reason) {
     const g = state.game;
-    resetTimer();
     g.phase = "end";
     g.winner = winner;
     g.reason = reason || "";
@@ -791,22 +685,7 @@
       confirm("Quitter la partie ?", "La partie en cours sera abandonnée.", "Quitter", "exitGame", true);
       return false;
     },
-    exitGame() { closeModal(); resetTimer(); state.game = null; state.screen = "home"; },
-    openTimer() { timerModal(); renderTimerChip(); return false; },
-    timerPreset(el) {
-      timerStop();
-      timer.duration = Number(el.dataset.s);
-      timer.remaining = timer.duration;
-      timerModal();
-      return false;
-    },
-    timerToggle() {
-      if (timer.running) timerStop();
-      else timerStart();
-      timerModal();
-      return false;
-    },
-    timerReset() { timerStop(); timer.remaining = timer.duration; timerModal(); return false; },
+    exitGame() { closeModal(); state.game = null; state.screen = "home"; },
     openAmnesic() { amnesicModal(); return false; },
     amnesicPick(el) { amnesicModal(el.dataset.id); return false; },
     openEditPlayers() { editPlayersModal(); return false; },
@@ -868,14 +747,6 @@
         if (av) av.textContent = initial(p.name);
         save();
       }
-    }
-  });
-  document.addEventListener("change", (e) => {
-    const t = e.target;
-    if (t.dataset.actionChange === "timerDefault") {
-      state.settings.timerSeconds = Number(t.value);
-      if (!timer.running) { timer.duration = state.settings.timerSeconds; timer.remaining = timer.duration; }
-      save();
     }
   });
   // Quand on quitte la modale "modifier les joueurs", on redessine l'écran.

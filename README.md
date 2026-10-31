@@ -21,7 +21,7 @@ Jeu **Undercover** en local : un seul téléphone qu'on se passe, de **3 à 10 j
 
 - Distribution secrète des mots joueur par joueur, ordre de parole aléatoire (Mr White ne parle jamais en premier).
 - Phase de description avec compteur d'infiltrés restants, vote, révélation du rôle, Mr White qui peut deviner le mot des civils.
-- Menu en partie : **Timer**, **Mode amnésique** (revoir son mot en maintenant appuyé), **Modifier les joueurs**, **Réglages**, **Changer les mots**.
+- Menu en partie : **Mode amnésique** (revoir son mot en maintenant appuyé), **Modifier les joueurs**, **Réglages**, **Changer les mots**.
 - Classement cumulé (civils +2, undercover +10, Mr White +6 par victoire).
 - Partie sauvegardée automatiquement : fermer l'app ne perd rien.
 
@@ -36,7 +36,7 @@ index.html        page unique
 css/style.css     styles
 js/words.js       bibliothèque de mots
 js/game.js        logique pure (rôles, distribution, victoire, scores)
-js/app.js         écrans, menus, timer, sauvegarde locale
+js/app.js         écrans, menus, sauvegarde locale
 test/game.test.js tests Node (npm test)
 sw.js, manifest.json, icons/   PWA
 ```
